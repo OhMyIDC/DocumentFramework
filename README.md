@@ -159,8 +159,9 @@ export async function render(url: string): Promise<{ html: string }>
 export function prerenderUrls(): string[]
 ```
 
-- `render()` 为每个 URL 创建独立的 `createSSRApp` 和内存 router，预加载当前页面模块后调用 `renderToString`。
+- `render()` 为每个 URL 创建独立的 `createSSRApp` 和内存 router，预加载当前页面模块后调用 `renderToString`，同时返回该页的 title / description。
 - `prerenderUrls()` 决定生成哪些 HTML；文档页由 `docs.pages` 自动推导。
+- SSG 会把 title、description 和 og:title / og:description 写进每页的 `<head>`；首页和宿主路由沿用模板值。
 - 客户端启动时如果发现 `#app` 已有内容，会改用 `createSSRApp` 水合，并在 `mount` 前预加载当前页，让首帧直接拿到相同的页面内容。
 - 静态托管需要把 `/docs/guide/start` 解析到 `docs/guide/start/index.html`，也就是支持目录索引（大多数静态托管默认支持）。
 
@@ -183,7 +184,7 @@ export function prerenderUrls(): string[]
 ## 已知限制
 
 - 相对图片路径暂未处理，图片请放在 `public/` 并用绝对路径引用。
-- SSG 目前不会为每个页面写入独立的 `<title>` / meta，标题仍由宿主控制。
+- SSG 会写入每页的 `<title>` / description / og 标签；但客户端路由跳转不会自动更新 `document.title`，标题所有权仍在宿主。
 - 用户保存了暗色主题时，水合前后会修补一次 `data-theme`（生产环境无警告，暗色首屏可能有一帧差异）。
 - 搜索结果、主题覆盖 API 尚未实现。
 - 侧边栏只按一级目录分组，二级目录会平铺。

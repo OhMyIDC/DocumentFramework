@@ -59,20 +59,29 @@ function check(condition, message) {
 await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve))
 
 const pages = [
-  ['/docs', 'OhMyIDC 文档框架'],
-  ['/docs/guide/start', '快速开始'],
-  ['/docs/guide/markdown', 'Markdown 能力'],
-  ['/docs/about', '关于'],
+  ['/docs', 'OhMyIDC 文档框架', 'OhMyIDC 文档框架的设计与用法'],
+  ['/docs/guide/start', '快速开始 | OhMyIDC 文档框架', '从零跑通文档站'],
+  ['/docs/guide/markdown', 'Markdown 能力 | OhMyIDC 文档框架', '代码高亮、提示块、锚点与链接'],
+  ['/docs/about', '关于 | OhMyIDC 文档框架', null],
 ]
 
 try {
   console.log('\n[ssg] 检查预渲染 HTML')
-  for (const [url, title] of pages) {
+  for (const [url, title, description] of pages) {
     const html = await (await fetch(`${origin}${url}`)).text()
     check(html.includes('<div class="odocs-markdown">'), `${url} 包含预渲染正文`)
     check(html.includes(`<h1`), `${url} 包含 h1`)
     check(!html.includes('正在加载'), `${url} 不含加载占位`)
-    check(html.includes(title), `${url} 包含标题「${title}」`)
+    check(html.includes(`<title>${title}</title>`), `${url} 标题为「${title}」`)
+    check(html.includes(`<meta property="og:title" content="${title}">`), `${url} 包含 og:title`)
+    if (description) {
+      check(
+        html.includes(`<meta name="description" content="${description}">`),
+        `${url} 包含 description`,
+      )
+    } else {
+      check(!html.includes('name="description"'), `${url} 没有多余 description`)
+    }
   }
 
   console.log('\n[ssg] 检查水合与交互')

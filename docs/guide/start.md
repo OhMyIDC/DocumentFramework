@@ -88,11 +88,14 @@ dist/
 
 ```ts
 // src/entry-server.ts
-export async function render(url: string): Promise<{ html: string }>
+export async function render(url: string): Promise<{
+  html: string
+  head: { title: string; description?: string } | null
+}>
 export function prerenderUrls(): string[]
 ```
 
-`render()` 用 `createSSRApp` 创建一次性的 app 和 router，预加载当前页面模块后再 `renderToString`，让客户端水合时首帧就能拿到相同的页面内容。`prerenderUrls()` 决定要生成哪些 HTML，文档页的 URL 由 `docs.pages` 自动推导。
+`render()` 用 `createSSRApp` 创建一次性的 app 和 router，预加载当前页面模块后再 `renderToString`，让客户端水合时首帧就能拿到相同的页面内容。它同时返回该页的 title / description，SSG 脚本会把 title、description 和 og 标签写进每页的 `<head>`；宿主首页沿用模板标题。`prerenderUrls()` 决定要生成哪些 HTML，文档页的 URL 由 `docs.pages` 自动推导。
 
 部署时让静态服务器把 `/docs/guide/start` 映射到 `docs/guide/start/index.html`（大多数静态托管默认就支持目录索引）。
 

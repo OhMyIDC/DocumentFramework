@@ -43,8 +43,35 @@ if (!template.includes('id="app"')) {
 }
 
 const urls = prerenderUrls()
+
+function escapeHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
+  )
+}
+
+function applyHead(template, head) {
+  if (!head) return template
+
+  const title = escapeHtml(head.title)
+  const tags = []
+
+  if (head.description) {
+    tags.push(`<meta name="description" content="${escapeHtml(head.description)}">`)
+  }
+  tags.push(`<meta property="og:title" content="${title}">`)
+  if (head.description) {
+    tags.push(`<meta property="og:description" content="${escapeHtml(head.description)}">`)
+  }
+
+  return template
+    .replace(/<title>[\s\S]*?<\/title>/, `<title>${title}</title>`)
+    .replace('</head>', `${tags.join('\n    ')}\n  </head>`)
+}
+
 for (const url of urls) {
-  const { html } = await render(url)
+  const { html, head } = await render(url)
   // pathname 会把中文编码成 %XX；写文件时还原成真实目录名。
   const route = decodeURIComponent(new URL(url, 'http://localhost').pathname)
   const file =
@@ -53,7 +80,7 @@ for (const url of urls) {
       : path.join(clientOut, route.replace(/^\//, ''), 'index.html')
 
   // 每个页面写一份完整 HTML，深层路径直接访问也能拿到预渲染内容。
-  const output = template.replace(
+  const output = applyHead(template, head).replace(
     /(<div id="app">)\s*(<\/div>)/,
     (_, open, close) => `${open}${html}${close}`,
   )
