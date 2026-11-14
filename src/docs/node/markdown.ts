@@ -8,6 +8,7 @@ import container from 'markdown-it-container'
 
 import { fileToRoute, withBase } from '../shared.ts'
 import type { DocsHeading } from '../types'
+import { createSlugger, inlineText } from './text.ts'
 
 const THEMES = {
   light: 'github-light',
@@ -247,14 +248,7 @@ function rewriteHref(href: string, file: string, base: string): string | null {
 
 function collectHeadings(tokens: Token[]): DocsHeading[] {
   const headings: DocsHeading[] = []
-  const seen = new Map<string, number>()
-
-  const slug = (text: string): string => {
-    const base = slugify(text)
-    const count = seen.get(base) ?? 0
-    seen.set(base, count + 1)
-    return count === 0 ? base : `${base}-${count}`
-  }
+  const slug = createSlugger()
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index]
@@ -269,32 +263,4 @@ function collectHeadings(tokens: Token[]): DocsHeading[] {
   }
 
   return headings
-}
-
-function inlineText(token: Token | undefined): string {
-  if (!token) return ''
-  if (!token.children) return token.content.trim()
-
-  let text = ''
-  for (const child of token.children) {
-    if (child.type === 'text' || child.type === 'code_inline' || child.type === 'image') {
-      text += child.content
-    } else if (child.type === 'softbreak' || child.type === 'hardbreak') {
-      text += ' '
-    }
-  }
-
-  return text.trim()
-}
-
-function slugify(text: string): string {
-  const slug = text
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^\p{L}\p{N}_-]+/gu, '')
-    .replace(/-{2,}/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  return slug || 'section'
 }

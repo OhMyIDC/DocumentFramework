@@ -20,3 +20,18 @@ test('renders markdown features', async ({ page }) => {
   await expect(page.locator('.odocs-content .shiki').first()).toBeVisible()
   await expect(page.locator('.odocs-outline')).toContainText('一个中文标题')
 })
+
+test('searches docs locally and jumps to the matched heading', async ({ page }) => {
+  await page.goto('/docs')
+
+  await page.getByRole('button', { name: '搜索文档' }).click()
+  const input = page.getByRole('searchbox', { name: '搜索关键词' })
+  await input.fill('锚点')
+
+  await expect(page.locator('.odocs-search-result').first()).toContainText('Markdown 能力')
+  await input.press('Enter')
+
+  await expect(page).toHaveURL(/\/docs\/guide\/markdown#/)
+  await expect(page.locator('.odocs-content h1')).toHaveText('Markdown 能力')
+  await expect(page.locator('.odocs-search-dialog')).toHaveCount(0)
+})

@@ -15,8 +15,9 @@
 - Shiki 双主题代码高亮、`::: tip` 系列提示块。
 - 页面级 HMR；新增/删除文件导致侧边栏变化时整页刷新。
 - SSG：`pnpm build:ssg` 为每个文档页生成可直访的静态 HTML，并在客户端水合。
+- 本地搜索：构建期生成索引，运行时纯前端匹配，支持中文、多关键词和锚点跳转。
 
-还没做：独立 CLI、本地搜索、主题扩展 API、i18n、版本化、Nuxt 模块、Shadow DOM 隔离。
+还没做：独立 CLI、主题扩展 API、i18n、版本化、Nuxt 模块、Shadow DOM 隔离。
 
 ## 快速开始
 
@@ -25,7 +26,7 @@ pnpm install
 pnpm dev
 ```
 
-打开 <http://localhost:5173/docs>。
+打开 <http://localhost:5173/docs>。按 `/` 或 `Ctrl/Cmd+K` 可以打开本地搜索。
 
 ```bash
 pnpm build        # 类型检查 + 生产构建（SPA 产物）
@@ -165,6 +166,16 @@ export function prerenderUrls(): string[]
 - 客户端启动时如果发现 `#app` 已有内容，会改用 `createSSRApp` 水合，并在 `mount` 前预加载当前页，让首帧直接拿到相同的页面内容。
 - 静态托管需要把 `/docs/guide/start` 解析到 `docs/guide/start/index.html`，也就是支持目录索引（大多数静态托管默认支持）。
 
+## 本地搜索
+
+导航栏搜索由构建期索引驱动，默认开启：
+
+- 插件扫描 `docs/**/*.md` 时提取标题和正文，跳过代码块，把索引写进 `virtual:docs`。
+- 运行时只做字符串匹配：所有关键词都要命中，标题权重高于正文，每个页面只保留最相关的一个区块。
+- `/` 或 `Ctrl/Cmd+K` 打开，`↑` / `↓` 选择，`Enter` 跳转，`Esc` 关闭；结果直达标题锚点。
+- 关闭入口：`theme: { search: false }`；不生成索引：插件选项 `search: false`。
+- 搜索是子串匹配，不做拼音、分词和拼写纠错。
+
 ## 设计约束
 
 - **不碰全局**：模块顶层不访问 `window` / `document`；不修改 `document.title` 和 `<html>` class。
@@ -185,6 +196,7 @@ export function prerenderUrls(): string[]
 
 - 相对图片路径暂未处理，图片请放在 `public/` 并用绝对路径引用。
 - SSG 会写入每页的 `<title>` / description / og 标签；但客户端路由跳转不会自动更新 `document.title`，标题所有权仍在宿主。
+- 搜索是子串匹配，不做拼音、分词和拼写纠错。
 - 用户保存了暗色主题时，水合前后会修补一次 `data-theme`（生产环境无警告，暗色首屏可能有一帧差异）。
-- 搜索结果、主题覆盖 API 尚未实现。
+- 主题覆盖 API 尚未实现。
 - 侧边栏只按一级目录分组，二级目录会平铺。

@@ -126,6 +126,17 @@ try {
     '客户端路由跳转可用',
   )
 
+  // 搜索索引是构建期生成的，水合后应能直接命中
+  await page.keyboard.press('/')
+  await page.waitForSelector('.odocs-search-dialog')
+  await page.locator('.odocs-search-input').fill('锚点')
+  await page.waitForSelector('.odocs-search-result')
+  check(
+    (await page.locator('.odocs-search-result').first().innerText()).includes('Markdown 能力'),
+    'SSG 页面搜索索引可用',
+  )
+  await page.keyboard.press('Escape')
+
   check(
     consoleIssues.length === 0,
     `控制台没有报错或警告${consoleIssues.length ? `：${consoleIssues.join(' | ')}` : ''}`,

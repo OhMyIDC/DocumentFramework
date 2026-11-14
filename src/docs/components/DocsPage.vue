@@ -117,6 +117,17 @@ watch(
   { immediate: true },
 )
 
+// 同一页内的锚点跳转不会触发 route.path 变化，等正文就绪后再滚动。
+watch(
+  () => route.hash,
+  async () => {
+    const page = docs.getPage(route.path)
+    if (!page || page.path !== meta.value?.path) return
+    await nextTick()
+    scrollToLocation()
+  },
+)
+
 // 没有 entry-server 预加载时，SSR 也要等到页面组件再输出。
 onServerPrefetch(async () => {
   const found = docs.getPage(route.path)

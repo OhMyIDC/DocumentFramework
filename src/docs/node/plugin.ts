@@ -29,7 +29,10 @@ export function docs(options: DocsPluginOptions = {}): Plugin {
 
   const rescan = async (): Promise<ScanResult> => {
     try {
-      cache = await scanDocs(docsRoot, { includeDrafts: !isBuild })
+      cache = await scanDocs(docsRoot, {
+        includeDrafts: !isBuild,
+        search: options.search !== false,
+      })
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(`[ohmyidc:docs] 找不到文档目录：${docsRoot}`)
@@ -46,6 +49,12 @@ export function docs(options: DocsPluginOptions = {}): Plugin {
 
     const virtual = server.moduleGraph.getModuleById(RESOLVED_ID)
     if (virtual) server.moduleGraph.invalidateModule(virtual)
+
+    server.ws.send({
+      type: 'custom',
+      event: 'ohmyidc:docs-search',
+      data: next.search,
+    })
 
     if (sidebarChanged) server.ws.send({ type: 'full-reload' })
   }
@@ -150,6 +159,7 @@ function generateModule(scan: ScanResult, context: GenerateOptions): string {
     description: options.description,
     sidebar: options.sidebar ?? scan.sidebar,
     theme: options.theme,
+    search: options.search === false ? [] : scan.search,
   }
 
   return `export const config = ${JSON.stringify(config)}\nexport const pages = [\n${pages.join(',\n')}\n]\n`

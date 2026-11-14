@@ -40,10 +40,36 @@ export interface DocsSidebarItem {
   items?: DocsSidebarItem[]
 }
 
+/** 搜索索引里的一个标题区块。 */
+export interface DocsSearchSection {
+  /** 标题锚点；空字符串表示页面顶部 */
+  id: string
+  heading: string
+  text: string
+}
+
+/** 构建期生成的单页搜索索引。 */
+export interface DocsSearchItem {
+  path: string
+  title: string
+  description?: string
+  sections: DocsSearchSection[]
+}
+
+/** 运行时匹配到的搜索结果。 */
+export interface DocsSearchResult {
+  path: string
+  title: string
+  heading?: string
+  anchor?: string
+  snippet: string
+}
+
 export interface DocsThemeConfig {
   sidebar?: boolean
   outline?: boolean
   prevNext?: boolean
+  search?: boolean
 }
 
 /** 构建期写入 virtual:docs 的配置。 */
@@ -53,6 +79,8 @@ export interface DocsConfig {
   description?: string
   sidebar: DocsSidebarItem[]
   theme?: DocsThemeConfig
+  /** 构建期生成的本地搜索索引 */
+  search?: DocsSearchItem[]
 }
 
 /** createDocs() 的入参。 */
@@ -71,6 +99,7 @@ export interface DocsContext {
   readonly pages: DocsPageMeta[]
   readonly sidebar: DocsSidebarItem[]
   readonly theme: DocsThemeConfig
+  readonly search: ShallowRef<DocsSearchItem[]>
   readonly current: ShallowRef<DocsCurrentPage | null>
   readonly dark: Ref<boolean>
   getPage(routePath: string): DocsPageMeta | undefined
@@ -83,6 +112,8 @@ export interface DocsContext {
   initTheme(): void
   setDark(value: boolean): void
   toggleDark(): void
+  /** 开发期热更新搜索索引 */
+  setSearch(items: DocsSearchItem[]): void
 }
 
 /** Vite 插件配置。 */
@@ -96,4 +127,6 @@ export interface DocsPluginOptions {
   /** 显式侧边栏；不传则按目录自动生成 */
   sidebar?: DocsSidebarItem[]
   theme?: DocsThemeConfig
+  /** 是否生成运行时搜索索引，默认 true */
+  search?: boolean
 }

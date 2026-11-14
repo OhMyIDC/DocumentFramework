@@ -7,6 +7,7 @@ import DocsOutline from './components/DocsOutline.vue'
 import DocsPage from './components/DocsPage.vue'
 import DocsProvider from './components/DocsProvider.vue'
 import DocsRoot from './components/DocsRoot.vue'
+import DocsSearch from './components/DocsSearch.vue'
 import DocsSidebar from './components/DocsSidebar.vue'
 import { DOCS_KEY } from './context'
 import { comparePages, normalizeBase, normalizePagePath, toPagePath, withBase } from './shared'
@@ -16,6 +17,7 @@ import type {
   DocsOptions,
   DocsPageMeta,
   DocsPageModule,
+  DocsSearchItem,
   DocsSidebarItem,
 } from './types'
 
@@ -42,6 +44,7 @@ export function createDocs(options: DocsOptions): DocsInstance {
 
   const current = shallowRef<DocsCurrentPage | null>(null)
   const dark = ref(false)
+  const search = shallowRef<DocsSearchItem[]>(options.search ?? [])
   let themeInitialized = false
 
   // 页面模块缓存：SSR 预加载后，客户端水合时可以直接同步拿到首帧组件。
@@ -110,6 +113,7 @@ export function createDocs(options: DocsOptions): DocsInstance {
     pages,
     sidebar,
     theme: options.theme ?? {},
+    search,
     current,
     dark,
     getPage,
@@ -120,6 +124,16 @@ export function createDocs(options: DocsOptions): DocsInstance {
     initTheme,
     setDark,
     toggleDark: () => setDark(!dark.value),
+    setSearch: (items) => {
+      search.value = items
+    },
+  }
+
+  // 开发期编辑 Markdown 时，插件会把重新扫描出的索引推过来，避免搜索命中旧内容。
+  if (import.meta.hot) {
+    import.meta.hot.on('ohmyidc:docs-search', (items: DocsSearchItem[]) => {
+      search.value = items
+    })
   }
 
   const routes = (): RouteRecordRaw[] => [
@@ -130,6 +144,7 @@ export function createDocs(options: DocsOptions): DocsInstance {
   const install = (app: App): void => {
     app.provide(DOCS_KEY, context)
     app.component('DocsLink', DocsLink)
+    app.component('DocsSearch', DocsSearch)
     app.component('DocsSidebar', DocsSidebar)
     app.component('DocsOutline', DocsOutline)
   }
@@ -143,6 +158,7 @@ export function createDocs(options: DocsOptions): DocsInstance {
     Provider: DocsProvider,
     components: {
       DocsLink,
+      DocsSearch,
       DocsSidebar,
       DocsOutline,
     },

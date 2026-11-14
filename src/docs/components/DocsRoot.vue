@@ -5,6 +5,7 @@ import { RouterView } from 'vue-router'
 import { useDocs } from '../context'
 import DocsLink from './DocsLink.vue'
 import DocsOutline from './DocsOutline.vue'
+import DocsSearch from './DocsSearch.vue'
 import DocsSidebar from './DocsSidebar.vue'
 
 const docs = useDocs()
@@ -19,6 +20,7 @@ const themeLabel = computed(() => (docs.dark.value ? '切换到浅色模式' : '
       <div class="odocs-nav-inner">
         <DocsLink to="/" class="odocs-brand">{{ docs.title }}</DocsLink>
         <div class="odocs-nav-actions">
+          <DocsSearch />
           <button
             type="button"
             class="odocs-icon-button"

@@ -21,9 +21,9 @@ export function createHostRouter() {
         children: docs.routes(),
       },
     ],
-    scrollBehavior(to, from, savedPosition) {
+    scrollBehavior(_to, _from, savedPosition) {
       if (savedPosition) return savedPosition
-      if (to.hash) return { el: to.hash, top: 72 }
+      // 文档正文是异步加载的，hash 滚动由 DocsPage 在内容渲染后处理。
       return { top: 0 }
     },
   })

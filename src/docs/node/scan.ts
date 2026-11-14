@@ -4,7 +4,8 @@ import path from 'node:path'
 import matter from 'gray-matter'
 
 import { fileToRoute } from '../shared.ts'
-import type { DocsPageMeta, DocsSidebarItem } from '../types'
+import type { DocsPageMeta, DocsSearchItem, DocsSidebarItem } from '../types'
+import { extractSearchItem } from './search.ts'
 
 export interface ScannedPage extends Omit<DocsPageMeta, 'load'> {
   /** 源文件绝对路径 */
@@ -14,16 +15,20 @@ export interface ScannedPage extends Omit<DocsPageMeta, 'load'> {
 
 export interface ScanOptions {
   includeDrafts?: boolean
+  /** 是否生成搜索索引，默认 true */
+  search?: boolean
 }
 
 export interface ScanResult {
   pages: ScannedPage[]
   sidebar: DocsSidebarItem[]
+  search: DocsSearchItem[]
 }
 
 export async function scanDocs(docsRoot: string, options: ScanOptions = {}): Promise<ScanResult> {
   const files = await walk(docsRoot)
   const pages: ScannedPage[] = []
+  const search: DocsSearchItem[] = []
 
   for (const absolute of files) {
     const file = toPosix(path.relative(docsRoot, absolute))
@@ -39,18 +44,25 @@ export async function scanDocs(docsRoot: string, options: ScanOptions = {}): Pro
         ? frontmatter.title.trim()
         : (extractTitle(parsed.content) ?? humanize(path.basename(file)))
 
+    const route = fileToRoute(file)
+    const description =
+      typeof frontmatter.description === 'string' ? frontmatter.description : undefined
+
     pages.push({
-      path: fileToRoute(file),
+      path: route,
       file,
       abs: absolute,
       title,
-      description:
-        typeof frontmatter.description === 'string' ? frontmatter.description : undefined,
+      description,
       order: typeof frontmatter.order === 'number' ? frontmatter.order : undefined,
       headings: [],
       frontmatter,
       draft,
     })
+
+    if (options.search !== false) {
+      search.push(extractSearchItem(parsed.content, { path: route, title, description }))
+    }
   }
 
   pages.sort(compareScanned)
@@ -58,6 +70,7 @@ export async function scanDocs(docsRoot: string, options: ScanOptions = {}): Pro
   return {
     pages,
     sidebar: buildSidebar(pages),
+    search,
   }
 }
 

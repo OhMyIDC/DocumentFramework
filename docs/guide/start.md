@@ -99,6 +99,12 @@ export function prerenderUrls(): string[]
 
 部署时让静态服务器把 `/docs/guide/start` 映射到 `docs/guide/start/index.html`（大多数静态托管默认就支持目录索引）。
 
+## 本地搜索
+
+扫描 Markdown 时会顺带提取标题和正文，跳过代码块，生成 `virtual:docs` 里的 `search` 索引。运行时只做字符串匹配，不加载 Markdown 解析器。
+
+按 `/` 或 `Ctrl/Cmd+K` 打开搜索，`↑` / `↓` 选择，`Enter` 跳转，`Esc` 关闭。搜索默认开启；`theme: { search: false }` 只隐藏入口，插件选项 `search: false` 则不生成索引。
+
 ## 修改内容
 
 编辑任意 Markdown 文件，保存即可看到更新。插件只失效当前页面模块；如果新增或删除文件导致侧边栏变化，才会整页刷新。
