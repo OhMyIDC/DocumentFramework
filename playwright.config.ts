@@ -1,5 +1,10 @@
 import process from 'node:process'
+import { existsSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
+
+const localChromium =
+  process.env.CHROMIUM_PATH ?? '/Applications/Chromium.app/Contents/MacOS/Chromium'
+const chromiumExecutable = existsSync(localChromium) ? localChromium : undefined
 
 /**
  * Read environment variables from file.
@@ -49,6 +54,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        ...(chromiumExecutable ? { launchOptions: { executablePath: chromiumExecutable } } : {}),
       },
     },
     {

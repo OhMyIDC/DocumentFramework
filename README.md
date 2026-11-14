@@ -1,73 +1,154 @@
-# OhMyIDCDocumentFramework
+# OhMyIDC Document Framework
 
-This template should help get you started developing with Vue 3 in Vite.
+输入 Markdown，输出可以**独立部署**、也可以**挂进任意 Vue 应用**的文档站。
 
-## Recommended IDE Setup
+和 VitePress 最大的区别：这个框架不拥有 App。宿主继续使用自己的 router、history 模式、SSR 和全局样式，文档只提供路由片段、页面组件和布局原语。独立模式只是一个「只装了文档的宿主壳」。
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## 当前状态
 
-## Recommended Browser Setup
+这是 MVP，已经跑通：
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- Vite 插件扫描 `docs/**/*.md`，生成路由元信息和侧边栏。
+- Markdown 在构建期编译成 Vue 渲染函数，运行时不需要 Markdown 解析器。
+- 宿主 router 挂载 `/docs` 子树，不创建第二个 router。
+- 相对 `.md` 链接改写、标题锚点、右侧目录、上一页/下一页。
+- Shiki 双主题代码高亮、`::: tip` 系列提示块。
+- 页面级 HMR；新增/删除文件导致侧边栏变化时整页刷新。
 
-## Type Support for `.vue` Imports in TS
+还没做：SSG、独立 CLI、本地搜索、主题扩展 API、i18n、版本化、Nuxt 模块、Shadow DOM 隔离。
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+## 快速开始
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
 pnpm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
 pnpm dev
 ```
 
-### Type-Check, Compile and Minify for Production
+打开 <http://localhost:5173/docs>。
 
-```sh
-pnpm build
+```bash
+pnpm build        # 类型检查 + 生产构建
+pnpm test:unit    # Vitest
+pnpm test:e2e     # Playwright
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+Playwright 默认复用 `/Applications/Chromium.app`（可用 `CHROMIUM_PATH` 覆盖），CI 上回退到 Playwright 自带浏览器。
 
-```sh
-pnpm test:unit
+## 目录结构
+
+```text
+.
+├─ docs/                     # Markdown 内容
+│  ├─ index.md               # 文档首页
+│  ├─ guide/
+│  │  ├─ index.md            # 分组首页，同时作为侧边栏分组标题
+│  │  ├─ start.md
+│  │  ├─ embed.md
+│  │  └─ markdown.md
+│  └─ about.md
+├─ src/
+│  ├─ docs/                  # 框架本体
+│  │  ├─ components/         # Root / Page / Sidebar / Outline / Link / Provider
+│  │  ├─ node/               # Vite 插件、扫描、Markdown 编译（仅 Node）
+│  │  ├─ styles/             # .odocs 命名空间下的默认主题
+│  │  ├─ createDocs.ts       # 运行时工厂
+│  │  ├─ shared.ts           # base / 路由路径工具
+│  │  └─ types.ts
+│  ├─ docs-setup.ts          # 宿主创建文档实例
+│  ├─ router/index.ts        # 宿主路由，挂载 docs 子树
+│  └─ main.ts
+├─ vite.config.ts
+└─ playwright.config.ts
 ```
 
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
+`src/docs/node/**` 只参与构建，不会进入客户端 bundle。
 
-```sh
-# Install browsers for the first run
-npx playwright install
+## 宿主如何集成
 
-# When testing on CI, must build the project first
-pnpm build
+### 1. 注册 Vite 插件
 
-# Runs the end-to-end tests
-pnpm test:e2e
-# Runs the tests only on Chromium
-pnpm test:e2e --project=chromium
-# Runs the tests of a specific file
-pnpm test:e2e tests/example.spec.ts
-# Runs the tests in debug mode
-pnpm test:e2e --debug
+```ts
+// vite.config.ts
+import { docs } from './src/docs/node/plugin.ts'
+
+export default defineConfig({
+  plugins: [docs({ root: 'docs', base: '/docs', title: '产品文档' }), vue()],
+})
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+插件生成 `virtual:docs`：
 
-```sh
-pnpm lint
+```ts
+export const config = { base: '/docs', title: '产品文档', sidebar: [...] }
+export const pages = [
+  { path: '/guide/start', title: '快速开始', load: () => import('/docs/guide/start.md') },
+]
 ```
+
+### 2. 创建实例
+
+```ts
+// src/docs-setup.ts
+import { createDocs } from './docs'
+import { config, pages } from 'virtual:docs'
+
+export const docs = createDocs({ ...config, pages })
+```
+
+```ts
+// src/main.ts
+app.use(docs)
+```
+
+### 3. 挂路由
+
+```ts
+// src/router/index.ts
+router.addRoute({
+  path: docs.base,
+  component: docs.Root,
+  children: docs.routes(),
+})
+```
+
+`docs.routes()` 只返回两个路由记录（首页 + catch-all），具体页面由 `DocsPage` 按当前路径查表并动态加载。
+
+## 嵌入深度
+
+```vue
+<!-- 全布局 -->
+<DocsRoot />
+
+<!-- 只内容：宿主自己管壳 -->
+<DocsProvider :docs="docs">
+  <MyShell><RouterView /></MyShell>
+</DocsProvider>
+
+<!-- Headless：拿原语自己拼 -->
+<DocsSidebar />
+<DocsPage />
+<DocsOutline />
+```
+
+## 设计约束
+
+- **不碰全局**：模块顶层不访问 `window` / `document`；不修改 `document.title` 和 `<html>` class。
+- **样式不越界**：所有选择器收在 `.odocs` 下，默认不注入 reset。
+- **base 感知**：编译期写入 `<a href>` 的路径同时包含 Vite base 和文档 base；`RouterLink` 由宿主 router 处理 history base。
+- **多实例安全**：`createDocs()` 是工厂，上下文通过 `provide/inject` 传递，不使用模块级可变单例。
+- **docs 目录必须在 Vite root 内**（当前版本限制）。
+
+## Markdown 约定
+
+- frontmatter：`title`、`description`、`order`、`draft`。
+- 页面标题取 frontmatter `title`，其次取正文第一个 `#` 标题，最后回退到文件名。
+- 相对链接 `./next.md#安装` 会在编译期改写为带 base 的文档路径。
+- 代码块自动加 `v-pre`，里面的 `{{ }}` 和标签不会被 Vue 编译。
+- `::: tip` / `::: info` / `::: warning` / `::: danger` 生成提示块。
+
+## 已知限制
+
+- 相对图片路径暂未处理，图片请放在 `public/` 并用绝对路径引用。
+- 没有 SSG，当前产物是 SPA，直接访问深层路径依赖托管方的 SPA fallback。
+- 搜索结果、主题覆盖 API 尚未实现。
+- 侧边栏只按一级目录分组，二级目录会平铺。
