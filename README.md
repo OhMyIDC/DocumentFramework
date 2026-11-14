@@ -14,8 +14,9 @@
 - 相对 `.md` 链接改写、标题锚点、右侧目录、上一页/下一页。
 - Shiki 双主题代码高亮、`::: tip` 系列提示块。
 - 页面级 HMR；新增/删除文件导致侧边栏变化时整页刷新。
+- SSG：`pnpm build:ssg` 为每个文档页生成可直访的静态 HTML，并在客户端水合。
 
-还没做：SSG、独立 CLI、本地搜索、主题扩展 API、i18n、版本化、Nuxt 模块、Shadow DOM 隔离。
+还没做：独立 CLI、本地搜索、主题扩展 API、i18n、版本化、Nuxt 模块、Shadow DOM 隔离。
 
 ## 快速开始
 
@@ -27,9 +28,11 @@ pnpm dev
 打开 <http://localhost:5173/docs>。
 
 ```bash
-pnpm build        # 类型检查 + 生产构建
+pnpm build        # 类型检查 + 生产构建（SPA 产物）
+pnpm build:ssg    # 类型检查 + SSG 预渲染
 pnpm test:unit    # Vitest
-pnpm test:e2e     # Playwright
+pnpm test:e2e     # Playwright（开发服务器）
+pnpm test:ssg     # 构建 SSG 并检查预渲染与水合
 ```
 
 Playwright 默认复用 `/Applications/Chromium.app`（可用 `CHROMIUM_PATH` 覆盖），CI 上回退到 Playwright 自带浏览器。
@@ -55,8 +58,12 @@ Playwright 默认复用 `/Applications/Chromium.app`（可用 `CHROMIUM_PATH` �
 │  │  ├─ shared.ts           # base / 路由路径工具
 │  │  └─ types.ts
 │  ├─ docs-setup.ts          # 宿主创建文档实例
+│  ├─ entry-server.ts        # SSR 入口：render(url) + prerenderUrls()
 │  ├─ router/index.ts        # 宿主路由，挂载 docs 子树
-│  └─ main.ts
+│  └─ main.ts                # 客户端入口，SSG 页面上自动水合
+├─ scripts/
+│  ├─ ssg.mjs                # 客户端 + 服务端构建，逐页写 HTML
+│  └─ check-ssg.mjs          # 校验预渲染 HTML 与水合
 ├─ vite.config.ts
 └─ playwright.config.ts
 ```
@@ -130,6 +137,33 @@ router.addRoute({
 <DocsOutline />
 ```
 
+## 静态生成（SSG）
+
+`pnpm build:ssg` 先构建客户端，再把 `src/entry-server.ts` 构建成 Node 侧入口，逐页渲染并写回 `dist`：
+
+```text
+dist/
+├─ index.html
+├─ assets/…
+└─ docs/
+   ├─ index.html
+   ├─ about/index.html
+   └─ guide/start/index.html
+```
+
+宿主需要提供两个导出：
+
+```ts
+// src/entry-server.ts
+export async function render(url: string): Promise<{ html: string }>
+export function prerenderUrls(): string[]
+```
+
+- `render()` 为每个 URL 创建独立的 `createSSRApp` 和内存 router，预加载当前页面模块后调用 `renderToString`。
+- `prerenderUrls()` 决定生成哪些 HTML；文档页由 `docs.pages` 自动推导。
+- 客户端启动时如果发现 `#app` 已有内容，会改用 `createSSRApp` 水合，并在 `mount` 前预加载当前页，让首帧直接拿到相同的页面内容。
+- 静态托管需要把 `/docs/guide/start` 解析到 `docs/guide/start/index.html`，也就是支持目录索引（大多数静态托管默认支持）。
+
 ## 设计约束
 
 - **不碰全局**：模块顶层不访问 `window` / `document`；不修改 `document.title` 和 `<html>` class。
@@ -149,6 +183,7 @@ router.addRoute({
 ## 已知限制
 
 - 相对图片路径暂未处理，图片请放在 `public/` 并用绝对路径引用。
-- 没有 SSG，当前产物是 SPA，直接访问深层路径依赖托管方的 SPA fallback。
+- SSG 目前不会为每个页面写入独立的 `<title>` / meta，标题仍由宿主控制。
+- 用户保存了暗色主题时，水合前后会修补一次 `data-theme`（生产环境无警告，暗色首屏可能有一帧差异）。
 - 搜索结果、主题覆盖 API 尚未实现。
 - 侧边栏只按一级目录分组，二级目录会平铺。

@@ -15,6 +15,7 @@ import type {
   DocsCurrentPage,
   DocsOptions,
   DocsPageMeta,
+  DocsPageModule,
   DocsSidebarItem,
 } from './types'
 
@@ -43,10 +44,40 @@ export function createDocs(options: DocsOptions): DocsInstance {
   const dark = ref(false)
   let themeInitialized = false
 
+  // 页面模块缓存：SSR 预加载后，客户端水合时可以直接同步拿到首帧组件。
+  const loadedPages = new Map<string, DocsPageModule>()
+  const pendingPages = new Map<string, Promise<DocsPageModule>>()
+
   const sidebar: DocsSidebarItem[] = options.sidebar ?? []
 
   const getPage = (routePath: string): DocsPageMeta | undefined => {
     return pageMap.get(normalizePagePath(toPagePath(routePath, base)))
+  }
+
+  const getLoadedPage = (routePath: string): DocsPageModule | undefined => {
+    const page = getPage(routePath)
+    return page ? loadedPages.get(page.path) : undefined
+  }
+
+  const loadPage = (page: DocsPageMeta): Promise<DocsPageModule> => {
+    const loaded = loadedPages.get(page.path)
+    if (loaded) return Promise.resolve(loaded)
+
+    const pending = pendingPages.get(page.path)
+    if (pending) return pending
+
+    const promise = page
+      .load()
+      .then((module) => {
+        loadedPages.set(page.path, module)
+        return module
+      })
+      .finally(() => {
+        pendingPages.delete(page.path)
+      })
+
+    pendingPages.set(page.path, promise)
+    return promise
   }
 
   const initTheme = (): void => {
@@ -82,6 +113,8 @@ export function createDocs(options: DocsOptions): DocsInstance {
     current,
     dark,
     getPage,
+    loadPage,
+    getLoadedPage,
     toPagePath: (routePath) => toPagePath(routePath, base),
     withBase: (path) => withBase(base, path),
     initTheme,

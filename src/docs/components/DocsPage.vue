@@ -1,21 +1,44 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import {
+  computed,
+  inject,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  onServerPrefetch,
+  ref,
+  shallowRef,
+  watch,
+} from 'vue'
 import type { Component } from 'vue'
 import { routerKey, useRoute } from 'vue-router'
 
 import { useDocs } from '../context'
-import type { DocsHeading, DocsPageMeta } from '../types'
+import type { DocsHeading, DocsPageMeta, DocsPageModule } from '../types'
 import DocsLink from './DocsLink.vue'
 
 const docs = useDocs()
 const route = useRoute()
 const router = inject(routerKey, null)
 
-const component = shallowRef<Component | null>(null)
-const meta = ref<DocsPageMeta | null>(null)
-const loading = ref(false)
+const initialMeta = docs.getPage(route.path) ?? null
+const initialModule = docs.getLoadedPage(route.path) ?? null
+
+const component = shallowRef<Component | null>(initialModule?.default ?? null)
+const meta = ref<DocsPageMeta | null>(initialMeta)
+const loading = ref(Boolean(initialMeta && !initialModule))
 
 let requestId = 0
+
+function applyPage(found: DocsPageMeta, module: DocsPageModule): void {
+  const headings = module.headings?.length ? module.headings : found.headings
+  meta.value = found
+  docs.current.value = { ...found, headings }
+  component.value = module.default
+}
+
+// SSR 预加载过的页面在首次渲染时直接可用，避免水合前后 DOM 不一致。
+if (initialMeta && initialModule) applyPage(initialMeta, initialModule)
 
 const orderedPages = computed(() => docs.pages.filter((page) => page.path !== '/'))
 
@@ -53,36 +76,56 @@ function scrollToLocation(): void {
   window.scrollTo(0, 0)
 }
 
+async function syncRoute(path: string): Promise<void> {
+  const request = ++requestId
+  const found = docs.getPage(path) ?? null
+  meta.value = found
+
+  if (!found) {
+    component.value = null
+    docs.current.value = null
+    loading.value = false
+    return
+  }
+
+  const cached = docs.getLoadedPage(path)
+  if (cached) {
+    applyPage(found, cached)
+    loading.value = false
+    await nextTick()
+    scrollToLocation()
+    return
+  }
+
+  component.value = null
+  loading.value = true
+  try {
+    const module = await docs.loadPage(found)
+    if (request !== requestId) return
+
+    applyPage(found, module)
+    await nextTick()
+    scrollToLocation()
+  } finally {
+    if (request === requestId) loading.value = false
+  }
+}
+
 watch(
   () => route.path,
-  async () => {
-    const request = ++requestId
-    const found = docs.getPage(route.path) ?? null
-    meta.value = found
-    component.value = null
-
-    if (!found) {
-      docs.current.value = null
-      loading.value = false
-      return
-    }
-
-    loading.value = true
-    try {
-      const module = await found.load()
-      if (request !== requestId) return
-
-      const headings = module.headings?.length ? module.headings : found.headings
-      docs.current.value = { ...found, headings }
-      component.value = module.default
-      await nextTick()
-      scrollToLocation()
-    } finally {
-      if (request === requestId) loading.value = false
-    }
-  },
+  (path) => void syncRoute(path),
   { immediate: true },
 )
+
+// 没有 entry-server 预加载时，SSR 也要等到页面组件再输出。
+onServerPrefetch(async () => {
+  const found = docs.getPage(route.path)
+  if (!found) return
+
+  const module = await docs.loadPage(found)
+  applyPage(found, module)
+  loading.value = false
+})
 
 function onDocsHmr(event: Event): void {
   const detail = (event as CustomEvent<{ path?: string; headings?: DocsHeading[] }>).detail

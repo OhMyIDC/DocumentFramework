@@ -8,7 +8,7 @@ description: OhMyIDC 文档框架的设计与用法
 把 Markdown 编译成 Vue 组件，再挂进任意 Vue 应用。独立部署和嵌入式文档共用同一套运行时。
 
 ::: tip 当前阶段
-这是 MVP：已经跑通「宿主 router 挂载 `/docs` → Markdown 渲染 → 文件热更新」这条主线。SSG、搜索、主题扩展还在路线图上。
+MVP 已经跑通「宿主 router 挂载 `/docs` → Markdown 渲染 → 文件热更新」和 SSG 预渲染两条主线。搜索、主题扩展还在路线图上。
 :::
 
 ## 它解决什么问题
@@ -25,7 +25,8 @@ description: OhMyIDC 文档框架的设计与用法
 
 ```bash
 pnpm install
-pnpm dev
+pnpm dev          # 开发服务器
+pnpm build:ssg    # 预渲染成静态 HTML
 ```
 
 然后打开 `/docs`。修改 `docs/guide/start.md` 里的任意文字，页面会热更新。

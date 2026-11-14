@@ -74,6 +74,10 @@ export interface DocsContext {
   readonly current: ShallowRef<DocsCurrentPage | null>
   readonly dark: Ref<boolean>
   getPage(routePath: string): DocsPageMeta | undefined
+  /** 加载页面模块，同一个页面只会真正 import 一次。 */
+  loadPage(page: DocsPageMeta): Promise<DocsPageModule>
+  /** 同步读取已经加载过的页面模块，供水合时首帧使用。 */
+  getLoadedPage(routePath: string): DocsPageModule | undefined
   toPagePath(routePath: string): string
   withBase(path: string): string
   initTheme(): void

@@ -166,7 +166,9 @@ async function compilePage(
   const hmrId = shortHash(relative)
 
   const result = compileTemplate({
-    source: html,
+    // 包一层根节点：多根静态 vnode 在客户端水合时无法正确跳过，
+    // 会从第二个节点开始和后续 vnode 错位。
+    source: `<div class="odocs-markdown">${html}</div>`,
     filename: relative,
     id: hmrId,
     compilerOptions: {

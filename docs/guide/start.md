@@ -67,6 +67,35 @@ router.addRoute({
 
 `docs.routes()` 只返回两个路由记录：分组首页和一个 catch-all。具体渲染哪个页面，由 `DocsPage` 根据当前路径查表决定。
 
+## 生成静态 HTML
+
+`pnpm build:ssg` 会先构建客户端，再把 `src/entry-server.ts` 构建成 Node 侧入口，逐页渲染：
+
+```text
+dist/
+├─ index.html                 # 宿主首页
+├─ assets/…
+└─ docs/
+   ├─ index.html
+   ├─ about/index.html
+   └─ guide/
+      ├─ index.html
+      ├─ start/index.html
+      └─ …
+```
+
+宿主只需要提供两个导出：
+
+```ts
+// src/entry-server.ts
+export async function render(url: string): Promise<{ html: string }>
+export function prerenderUrls(): string[]
+```
+
+`render()` 用 `createSSRApp` 创建一次性的 app 和 router，预加载当前页面模块后再 `renderToString`，让客户端水合时首帧就能拿到相同的页面内容。`prerenderUrls()` 决定要生成哪些 HTML，文档页的 URL 由 `docs.pages` 自动推导。
+
+部署时让静态服务器把 `/docs/guide/start` 映射到 `docs/guide/start/index.html`（大多数静态托管默认就支持目录索引）。
+
 ## 修改内容
 
 编辑任意 Markdown 文件，保存即可看到更新。插件只失效当前页面模块；如果新增或删除文件导致侧边栏变化，才会整页刷新。
